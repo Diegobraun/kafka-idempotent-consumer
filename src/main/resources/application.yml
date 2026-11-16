@@ -1,0 +1,66 @@
+spring:
+  application:
+    name: kafka-idempotent-consumer
+  datasource:
+    url: jdbc:postgresql://localhost:5432/app
+    username: app
+    password: app
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      isolation-level: read_committed
+      max-poll-records: 10
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
+      properties:
+        max.poll.interval.ms: 300000
+        spring.deserializer.value.delegate.class: org.springframework.kafka.support.serializer.JsonDeserializer
+        spring.json.trusted.packages: "com.exemplo.pagamentos.domain"
+        spring.json.value.default.type: com.exemplo.pagamentos.domain.PagamentoEvent
+        spring.json.use.type.headers: false
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all
+      properties:
+        enable.idempotence: true
+        spring.json.add.type.headers: false
+    listener:
+      ack-mode: manual
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+  task:
+    scheduling:
+      shutdown:
+        await-termination: true
+        await-termination-period: 30s
+
+server:
+  shutdown: graceful
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics
+
+app:
+  instance-id: ${HOSTNAME:local}
+  kafka:
+    topic: pagamentos
+    group-id: pagamentos-consumer
+  core:
+    base-url: http://localhost:8080/fake-core
+    connect-timeout: 2s
+    read-timeout: 10s
+  inbox:
+    lease: 30s
+    sweeper-enabled: true
+    sweeper-interval: 10s
+    sweeper-batch-size: 50
+    max-not-sent-attempts: 5
+    not-sent-backoff: 10s
+    retention: 30d
+    purge-cron: "0 0 3 * * *"
